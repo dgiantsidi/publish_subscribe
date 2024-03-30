@@ -5,7 +5,7 @@
 
 static void func(std::shared_ptr<Context> ptr) {
   Subscriber sub(ptr);
-  sub.listen_on_event(kEventType::EVENT0);
+  auto [event, data, data_sz] = sub.listen_on_event(kEventType::EVENT0);
 }
 
 int main(void) {
@@ -17,7 +17,9 @@ int main(void) {
   }
   using namespace std::chrono_literals;
   std::this_thread::sleep_for(2000ms);
+
   pub.notify_on_event(kEventType::EVENT0);
+
   for (auto &th : threads)
     th.join();
 
