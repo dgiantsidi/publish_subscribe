@@ -1,5 +1,5 @@
 export CXX = g++
-export FLAGS = -Wall -O3 -g -fsanitize=address
+export FLAGS = -Wall -O3 -g -std=c++17 -fsanitize=address
 BIN=main
 
 target: main
