@@ -4,5 +4,4 @@ Design & implementation of a general purpose system that can facilitate intra-pr
 
 
 // TODOs:
-- add callbacks' map
 - resolve subscribe/unsubscribe functions
