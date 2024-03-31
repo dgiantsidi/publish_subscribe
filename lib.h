@@ -36,7 +36,20 @@ std::ostream &operator<<(std::ostream &os, const std::shared_ptr<T> &data) {
 
 class Callbacks {
 public:
-  std::map<std::string, std::function<void()>> callbacks_map;
+  using callback_type =
+      std::function<void(std::shared_ptr<uint8_t[]> data, size_t data_sz)>;
+
+  std::map<kEventType, callback_type> callbacks_map;
+
+  void reg(kEventType event, callback_type cb) {
+    callbacks_map.insert({event, cb});
+  }
+
+  void invoke_callback(const kEventType &event, std::shared_ptr<uint8_t[]> data,
+                       size_t data_sz) {
+    auto callback_it = callbacks_map.find(event);
+    callback_it->second(data, data_sz);
+  }
 };
 
 class Context {
@@ -92,6 +105,15 @@ public:
     cv.notify_all();
   }
 
+  void reg(kEventType event, Callbacks::callback_type cb) {
+    cbs.reg(event, cb);
+  }
+
+  void invoke_callback(const kEventType &event, std::shared_ptr<uint8_t[]> data,
+                       size_t data_sz) {
+    cbs.invoke_callback(event, data, data_sz);
+  }
+
 private:
   std::unordered_map<int, std::vector<int>> subscribers_per_event;
   bool ready =
@@ -100,6 +122,7 @@ private:
       shared_mem; /* common area where parallel threads find data (read-only) */
   std::mutex m;
   std::condition_variable cv;
+  Callbacks cbs;
 };
 
 class Publisher {
