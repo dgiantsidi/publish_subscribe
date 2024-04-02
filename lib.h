@@ -59,6 +59,14 @@ public:
     subscribers_per_event.insert({kEventType::EVENT0, std::vector<int>()});
     subscribers_per_event.insert({kEventType::EVENT1, std::vector<int>()});
     subscribers_per_event.insert({kEventType::EVENT2, std::vector<int>()});
+
+    locks_per_event.insert(
+        {kEventType::EVENT0, std::make_unique<middleware>()});
+    locks_per_event.insert(
+        {kEventType::EVENT1, std::make_unique<middleware>()});
+    locks_per_event.insert(
+        {kEventType::EVENT2, std::make_unique<middleware>()});
+
     shared_mem = std::make_unique<uint8_t[]>(kMemPoolSz);
     shared_mem[kMemPoolSz - 1] = '\0';
   }
@@ -75,6 +83,8 @@ public:
         return {event, std::shared_ptr<uint8_t[]>(new uint8_t[1]), -1};
       }
     }
+    auto &m = (locks_per_event[event]->m);
+    auto &cv = (locks_per_event[event]->cv);
     std::unique_lock<std::mutex> lk(m);
     // cv.wait(lk, []{return pred;});
     cv.wait(lk, [&] { return ready; });
@@ -109,6 +119,9 @@ public:
   }
 
   void notify(const kEventType &event) {
+
+    auto &m = (locks_per_event[event]->m);
+    auto &cv = (locks_per_event[event]->cv);
     {
       std::lock_guard<std::mutex> lk(m);
       // publishing data to the common memory area
@@ -130,14 +143,18 @@ public:
   }
 
 private:
+  struct middleware {
+    std::mutex m;
+    std::condition_variable cv;
+  };
   std::unordered_map<int, std::vector<int>> subscribers_per_event;
+  std::unordered_map<int, std::unique_ptr<middleware>> locks_per_event;
   bool ready =
       false; /* shared data are ready to be read from the subscribers */
   std::unique_ptr<uint8_t[]>
       shared_mem; /* common area where parallel threads find data (read-only) */
-  std::mutex m;
   std::shared_mutex subscribers_list_m;
-  std::condition_variable cv;
+
   Callbacks cbs;
 };
 
