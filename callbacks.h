@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <vector>
 
+constexpr int kThreadsNum = 2000;
+
 static void callback0(std::shared_ptr<uint8_t[]> data, size_t data_sz) {
   // TODO: implement me
   fmt::print("[{}]", __PRETTY_FUNCTION__);

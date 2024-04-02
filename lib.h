@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <stdlib.h>
 #include <tuple>
 #include <unordered_map>
@@ -63,7 +64,17 @@ public:
   }
 
   std::tuple<kEventType, std::shared_ptr<uint8_t[]>, size_t>
-  wait(const kEventType event) {
+  wait(const kEventType event, int s_id) {
+    {
+      std::shared_lock<std::shared_mutex> shared_lck(subscribers_list_m);
+      auto &subscribers = subscribers_per_event[event];
+      if (std::find(subscribers.begin(), subscribers.end(), s_id) ==
+          subscribers.end()) {
+        fmt::print("[{}] id={} not subscribed to event={}\n",
+                   __PRETTY_FUNCTION__, s_id, static_cast<int>(event));
+        return {event, std::shared_ptr<uint8_t[]>(new uint8_t[1]), -1};
+      }
+    }
     std::unique_lock<std::mutex> lk(m);
     // cv.wait(lk, []{return pred;});
     cv.wait(lk, [&] { return ready; });
@@ -80,13 +91,17 @@ public:
   }
 
   void subscribe(const kEventType &event, int &id) {
+    std::unique_lock<std::shared_mutex> exclusive_lck(subscribers_list_m);
     auto &subscribers = subscribers_per_event[event];
-    if (std::find(subscribers.begin(), subscribers.end(), id) !=
+    fmt::print("[{}] subscribe id={} to event={}\n", __PRETTY_FUNCTION__, id,
+               static_cast<int>(event));
+    if (std::find(subscribers.begin(), subscribers.end(), id) ==
         subscribers.end())
       subscribers_per_event[event].push_back(id);
   }
 
   void unsubscribe(const kEventType &event, int &id) {
+    std::unique_lock<std::shared_mutex> exclusive_lck(subscribers_list_m);
     auto &subscribers = subscribers_per_event[event];
     auto it = std::find(subscribers.begin(), subscribers.end(), id);
     if (it != subscribers.end())
@@ -121,6 +136,7 @@ private:
   std::unique_ptr<uint8_t[]>
       shared_mem; /* common area where parallel threads find data (read-only) */
   std::mutex m;
+  std::shared_mutex subscribers_list_m;
   std::condition_variable cv;
   Callbacks cbs;
 };
@@ -153,7 +169,7 @@ public:
 
   std::tuple<kEventType, std::shared_ptr<uint8_t[]>, size_t>
   listen_on_event(kEventType event) {
-    return ctx->wait(event);
+    return ctx->wait(event, s_id);
   }
 
   void subscribe(kEventType e) { ctx->subscribe(e, s_id); }
