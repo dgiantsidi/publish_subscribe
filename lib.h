@@ -1,8 +1,8 @@
 #pragma once
 #include <atomic>
 #include <condition_variable>
-#include <fmt/color.h>
-#include <fmt/printf.h>
+
+#include "logger.h"
 #include <iostream>
 #include <map>
 #include <memory>
@@ -20,20 +20,6 @@ constexpr size_t kMemPoolSz = 1024 + 1;
 constexpr size_t kDataSz = 512 + 1;
 
 static int gen_unique_id() { return counter.fetch_add(1); }
-
-template <typename T>
-std::ostream &operator<<(std::ostream &os, const std::shared_ptr<T> &data) {
-  os << "[";
-  size_t idx = 0ULL;
-  for (;;) {
-    if (data[idx] == '\0')
-      break;
-    os << data[idx];
-    idx++;
-  }
-  os << "]";
-  return os;
-}
 
 class Callbacks {
 public:
@@ -78,8 +64,10 @@ public:
       auto &subscribers = subscribers_per_event[event];
       if (std::find(subscribers.begin(), subscribers.end(), s_id) ==
           subscribers.end()) {
-        fmt::print("[{}] id={} not subscribed to event={}\n",
-                   __PRETTY_FUNCTION__, s_id, static_cast<int>(event));
+        std::string to_be_printed = "id=" + std::to_string(s_id) +
+                                    "not subscribed to event=" +
+                                    std::to_string(static_cast<int>(event));
+        DEBUG_LOG(to_be_printed);
         return {event, std::shared_ptr<uint8_t[]>(new uint8_t[1]), -1};
       }
     }
@@ -103,8 +91,10 @@ public:
   void subscribe(const kEventType &event, int &id) {
     std::unique_lock<std::shared_mutex> exclusive_lck(subscribers_list_m);
     auto &subscribers = subscribers_per_event[event];
-    fmt::print("[{}] subscribe id={} to event={}\n", __PRETTY_FUNCTION__, id,
-               static_cast<int>(event));
+    std::string to_be_printed =
+        "subscribe id=" + std::to_string(id) +
+        " to event=" + std::to_string(static_cast<int>(event)) + "\n";
+    DEBUG_LOG(to_be_printed);
     if (std::find(subscribers.begin(), subscribers.end(), id) ==
         subscribers.end())
       subscribers_per_event[event].push_back(id);
@@ -167,7 +157,10 @@ public:
 
   void notify_on_event(kEventType event) { ctx->notify(event); }
 
-  ~Publisher() { fmt::print("[{}] w/ id={}\n", __PRETTY_FUNCTION__, p_id); }
+  ~Publisher() {
+    std::string to_be_printed = "id=" + std::to_string(p_id) + "\n";
+    DEBUG_LOG(to_be_printed);
+  }
 
 private:
   std::shared_ptr<Context> ctx;
@@ -179,10 +172,14 @@ public:
   explicit Subscriber(std::shared_ptr<Context> _ctx) {
     ctx = _ctx;
     s_id = gen_unique_id();
-    fmt::print("[{}] w/ id={}\n", __PRETTY_FUNCTION__, s_id);
+    std::string to_be_printed = "id=" + std::to_string(s_id) + "\n";
+    DEBUG_LOG(to_be_printed.c_str());
   }
 
-  ~Subscriber() { fmt::print("[{}] w/ id={}\n", __PRETTY_FUNCTION__, s_id); }
+  ~Subscriber() {
+    std::string to_be_printed = "id=" + std::to_string(s_id) + "\n";
+    DEBUG_LOG(to_be_printed.c_str());
+  }
 
   std::tuple<kEventType, std::shared_ptr<uint8_t[]>, size_t>
   listen_on_event(kEventType event) {
