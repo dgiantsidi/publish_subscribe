@@ -1,7 +1,7 @@
 #pragma once
 #include <atomic>
 #include <condition_variable>
-
+#include <functional>
 #include "logger.h"
 #include <iostream>
 #include <map>
