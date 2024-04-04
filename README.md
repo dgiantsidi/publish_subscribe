@@ -3,4 +3,4 @@
 Design & implementation of a general purpose system that can facilitate intra-process publish-subscribe (event-driven) communication model in C++
 
 // TODOs
--- maybe do a cmakefile
+// Documentation and how to use and use-cases
